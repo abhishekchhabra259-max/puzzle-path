@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>PuzzlePath — Find your child's next puzzle</title>
+<meta name="description" content="Puzzle recommendations matched to what your child can already do.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22314F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FBF6EC;
+    --ink: #22314F;
+    --ink-soft: #4A5A78;
+    --amber: #E2933E;
+    --amber-dark: #C77A2A;
+    --sage: #7C9473;
+    --line: #E4DBC8;
+    --white: #FFFFFF;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Public Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--cream);
+    position: relative;
+  }
+  h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; color: var(--ink); }
+
+  /* Progress indicator — connecting puzzle pieces */
+  .progress {
+    display: flex;
+    gap: 6px;
+    padding: 20px 24px 0;
+    justify-content: center;
+  }
+  .progress-piece {
+    width: 32px;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--line);
+    transition: background 0.3s ease;
+    position: relative;
+  }
+  .progress-piece::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: inherit;
+  }
+  .progress-piece:last-child::after { display: none; }
+  .progress-piece.filled { background: var(--amber); }
+
+  .screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 32px 24px 40px;
+    animation: fadeIn 0.35s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  .brand-mark svg { width: 28px; height: 28px; }
+  .brand-mark span {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--ink);
+  }
+
+  .headline { font-size: 1.9rem; line-height: 1.15; margin-bottom: 14px; }
+  .sub { color: var(--ink-soft); font-size: 1rem; margin-bottom: 10px; }
+  .trust-line {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    border-left: 2px solid var(--sage);
+    padding-left: 10px;
+    margin: 18px 0;
+  }
+  .meta-line { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 28px; }
+
+  .spacer { flex: 1; min-height: 24px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--amber);
+    color: var(--white);
+    font-family: 'Public Sans', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    border-radius: 999px;
+    padding: 16px 28px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    width: 100%;
+  }
+  .btn:hover { background: var(--amber-dark); }
+  .btn:active { transform: scale(0.98); }
+  .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .btn.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--line);
+  }
+  .btn.secondary:hover { background: var(--white); }
+  .btn-row { display: flex; gap: 12px; margin-top: 20px; }
+
+  .field-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+  input[type="number"] {
+    width: 100%;
+    font-size: 1.1rem;
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1.5px solid var(--line);
+    background: var(--white);
+    font-family: 'Public Sans', sans-serif;
+  }
+  input[type="number"]:focus-visible { outline: 3px solid var(--sage); outline-offset: 1px; }
+
+  .checklist { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--white);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .check-item:hover { border-color: var(--sage); }
+  .check-item.checked { border-color: var(--amber); background: #FFF8ED; }
+  .check-item input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--amber); flex-shrink: 0; }
+  .check-item label { font-size: 0.95rem; cursor: pointer; }
+  .check-icon { color: var(--sage); flex-shrink: 0; margin-top: 1px; }
+  .check-item.checked .check-icon { color: var(--amber-dark); }
+  .check-text { display: flex; align-items: flex-start; gap: 10px; flex: 1; }
+
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .chip {
+    border: 1.5px solid var(--line);
+    background: var(--white);
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .chip.selected { background: var(--ink); color: var(--white); border-color: var(--ink); }
+  .chip-hint { font-size: 0.8rem; color: var(--ink-soft); margin-top: 10px; }
+
+  .result-card {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 24px;
+    border: 1.5px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .result-eyebrow { font-size: 0.8rem; color: var(--sage); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .result-title-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .result-title-row .check-icon { color: var(--amber-dark); margin-top: 4px; }
+  .result-title { font-size: 1.4rem; }
+  .result-why { font-size: 0.95rem; color: var(--ink-soft); margin-bottom: 16px; }
+  .puzzle-list { list-style: none; }
+  .puzzle-list li {
+    font-size: 0.9rem;
+    padding: 8px 0;
+    border-top: 1px solid var(--line);
+  }
+  .puzzle-list li:first-child { border-top: none; }
+
+  .roadmap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .roadmap .arrow { color: var(--sage); }
+  .roadmap .current { font-weight: 700; color: var(--ink); }
+
+  .error-text { color: var(--amber-dark); font-size: 0.85rem; margin-top: 8px; min-height: 18px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .screen { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="icons.js"></script>
+<script>
+(function () {
+  const app = document.getElementById('app');
+  const TOTAL_STEPS = 4; // landing not counted in progress
+
+  const state = {
+    step: 0,
+    ageMonths: null,
+    checkedSkills: new Set(),
+    interests: new Set(),
+    expandLevel: 0
+  };
+
+  const INTERESTS = ["Animals", "Vehicles", "Dinosaurs", "Space", "Nature", "Numbers & Letters"];
+
+  function brandMark() {
+    return `
+      <div class="brand-mark">
+        <svg viewBox="0 0 28 28" fill="none">
+          <path d="M9 3h6a2 2 0 0 1 2 2v3.2a1.8 1.8 0 0 0 2.8 1.5A2.2 2.2 0 1 1 22.4 14a1.8 1.8 0 0 0-1.4 2.9V20a2 2 0 0 1-2 2h-3.2a1.8 1.8 0 0 0-1.5 2.8A2.2 2.2 0 1 1 10 22.4a1.8 1.8 0 0 0-2.9-1.4H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3.2a1.8 1.8 0 0 0 1.4-2.9A2.2 2.2 0 1 1 14 5a1.8 1.8 0 0 0 2.8 1.5" stroke="#22314F" stroke-width="1.4" fill="#E2933E" fill-opacity="0.15"/>
+        </svg>
+        <span>PuzzlePath</span>
+      </div>`;
+  }
+
+  function progressBar(activeStep) {
+    let dots = '';
+    for (let i = 1; i <= TOTAL_STEPS; i++) {
+      dots += `<div class="progress-piece ${i <= activeStep ? 'filled' : ''}"></div>`;
+    }
+    return `<div class="progress">${dots}</div>`;
+  }
+
+  function render() {
+    if (state.step === 0) return renderLanding();
+    if (state.step === 1) return renderAge();
+    if (state.step === 2) return renderChecklist();
+    if (state.step === 3) return renderInterests();
+    if (state.step === 4) return renderResult();
+  }
+
+  function renderLanding() {
+    app.innerHTML = `
+      <div class="screen">
+        ${brandMark()}
+        <h1 class="headline">Find the right puzzle for your child — not by age, by what they can already do.</h1>
+        <p class="trust-line">Grounded in Montessori and early spatial-development research.</p>
+        <p class="meta-line">Takes 2 minutes. No signup.</p>
+        <div class="spacer"></div>
+        <button class="btn" id="start-btn">Find My Child's Next Challenge</button>
+      </div>`;
+    document.getElementById('start-btn').onclick = () => { state.step = 1; render(); };
+  }
+
+  function renderAge() {
+    app.innerHTML = `
+      ${progressBar(1)}
+      <div class="screen">
+        <h2 class="headline" style="font-size:1.5rem;">How old is your child?</h2>
+        <p class="sub">In months, so we can pick the right starting point.</p>
+        <div style="margin-top:20px;">
+          <label class="field-label" for="age-input">Child's age (months)</label>
+          <input type="number" id="age-input" min="6" max="120" placeholder="e.g. 30" value="${state.ageMonths ?? ''}">
+          <div class="error-text" id="age-error"></div>
+        </div>
+        <div class="spacer"></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="back-btn">Back</button>
+          <button class="btn" id="next-btn">Continue</button>
+        </div>
+      </div>`;
+    document.getElementById('back-btn').onclick = () => { state.step = 0; render(); };
+    document.getElementById('next-btn').onclick = () => {
+      const val = parseInt(document.getElementById('age-input').value, 10);
+      if (!val || val < 6 || val > 120) {
+        document.getElementById('age-error').textContent = 'Enter an age between 6 months and 10 years.';
+        return;
+      }
+      state.ageMonths = val;
+      state.step = 2;
+      render();
+    };
+  }
+
+  function matchedStageIndex(ageMonths) {
+    const matchedStage = STAGES.find(s => ageMonths >= s.ageRangeMonths[0] && ageMonths < s.ageRangeMonths[1])
+      || (ageMonths < STAGES[0].ageRangeMonths[0] ? STAGES[0] : STAGES[STAGES.length - 1]);
+    return STAGES.findIndex(s => s.id === matchedStage.id);
+  }
+
+  function renderChecklist() {
+    const matchedIdx = matchedStageIndex(state.ageMonths);
+    const topIdx = Math.min(matchedIdx + state.expandLevel, STAGES.length - 1);
+    const displayStages = STAGES.slice(matchedIdx, topIdx + 1);
+    const displaySkills = displayStages.flatMap(s => s.skills);
+    const canExpandMore = topIdx < STAGES.length - 1;
+
+    app.innerHTML = `
+      ${progressBar(2)}
+      <div class="screen">
+        <h2 class="headline" style="font-size:1.5rem;">What can your child already do?</h2>
+        <p class="sub">Check everything that's true — it's fine if only a few apply.</p>
+        <div class="checklist" id="checklist">
+          ${displaySkills.map(sk => `
+            <div class="check-item" data-id="${sk.id}">
+              <input type="checkbox" id="chk-${sk.id}" ${state.checkedSkills.has(sk.id) ? 'checked' : ''}>
+              <label for="chk-${sk.id}">${sk.checklistItem}</label>
+            </div>
+          `).join('')}
+        </div>
+        ${canExpandMore ? `<p class="chip-hint" id="expand-link" style="cursor:pointer;text-decoration:underline;margin-top:4px;">My child does even more than this</p>` : ''}
+        <div class="spacer"></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="back-btn">Back</button>
+          <button class="btn" id="next-btn">Continue</button>
+        </div>
+      </div>`;
+
+    document.querySelectorAll('.check-item').forEach(item => {
+      const id = item.dataset.id;
+      const checkbox = item.querySelector('input');
+      const sync = () => {
+        if (checkbox.checked) { state.checkedSkills.add(id); item.classList.add('checked'); }
+        else { state.checkedSkills.delete(id); item.classList.remove('checked'); }
+      };
+      item.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'INPUT') checkbox.checked = !checkbox.checked;
+        sync();
+      });
+      if (state.checkedSkills.has(id)) item.classList.add('checked');
+    });
+
+    const expandLink = document.getElementById('expand-link');
+    if (expandLink) expandLink.onclick = () => { state.expandLevel += 1; render(); };
+
+    document.getElementById('back-btn').onclick = () => { state.step = 1; render(); };
+    document.getElementById('next-btn').onclick = () => { state.step = 3; render(); };
+  }
+
+  function renderInterests() {
+    app.innerHTML = `
+      ${progressBar(3)}
+      <div class="screen">
+        <h2 class="headline" style="font-size:1.5rem;">What does your child enjoy?</h2>
+        <p class="sub">Pick a few — we'll flavor the suggestions around them.</p>
+        <div class="chip-grid" id="chip-grid">
+          ${INTERESTS.map(i => `<div class="chip ${state.interests.has(i) ? 'selected' : ''}" data-val="${i}">${i}</div>`).join('')}
+        </div>
+        <p class="chip-hint">Optional — you can skip this.</p>
+        <div class="spacer"></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="back-btn">Back</button>
+          <button class="btn" id="next-btn">See Recommendation</button>
+        </div>
+      </div>`;
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const val = chip.dataset.val;
+        if (state.interests.has(val)) { state.interests.delete(val); chip.classList.remove('selected'); }
+        else { state.interests.add(val); chip.classList.add('selected'); }
+      });
+    });
+
+    document.getElementById('back-btn').onclick = () => { state.step = 2; render(); };
+    document.getElementById('next-btn').onclick = () => { state.step = 4; render(); computeAndShowResult(); };
+  }
+
+  function computeRecommendation() {
+    // Find the most advanced skill the child has, among checked skills, by stage order then skill order within stage
+    const checked = ALL_SKILLS.filter(s => state.checkedSkills.has(s.id));
+    let current = null;
+    if (checked.length > 0) {
+      current = checked.reduce((best, s) => {
+        if (!best) return s;
+        if (s.stageOrder > best.stageOrder) return s;
+        if (s.stageOrder === best.stageOrder) {
+          const stage = STAGES.find(st => st.id === s.stageId);
+          const idxS = stage.skills.findIndex(x => x.id === s.id);
+          const idxBest = stage.skills.findIndex(x => x.id === best.id);
+          return idxS > idxBest ? s : best;
+        }
+        return best;
+      }, null);
+    } else {
+      // Nothing checked — start from the beginning of the age-appropriate stage
+      const stage = STAGES.find(s => state.ageMonths >= s.ageRangeMonths[0] && state.ageMonths < s.ageRangeMonths[1]) || STAGES[0];
+      current = { ...stage.skills[0], stageId: stage.id, stageOrder: stage.order };
+      // Recommend this as the "next" directly
+      return { current: null, next: current, stage };
+    }
+    const nextSkill = current.nextSkillId ? getSkillById(current.nextSkillId) : null;
+    const stage = getStageBySkillId(current.id);
+    return { current, next: nextSkill, stage };
+  }
+
+  function buildRoadmap(nextSkill) {
+    if (!nextSkill) return '';
+    const stage = getStageBySkillId(nextSkill.id);
+    const idx = stage.skills.findIndex(s => s.id === nextSkill.id);
+    const before = stage.skills[idx - 1];
+    const after = stage.skills[idx + 1] || (STAGES[stage.order] ? STAGES[stage.order].skills[0] : null);
+    const parts = [before, nextSkill, after].filter(Boolean);
+    return `<div class="roadmap">${parts.map((s, i) => {
+      const label = s.id === nextSkill.id ? `<span class="current">${s.parentLabel}</span>` : s.parentLabel;
+      return i < parts.length - 1 ? `${label}<span class="arrow">→</span>` : label;
+    }).join('')}</div>`;
+  }
+
+  function renderResult() {
+    app.innerHTML = `
+      ${progressBar(4)}
+      <div class="screen">
+        <div id="result-slot">
+          <p class="sub">Working out the right next step…</p>
+        </div>
+      </div>`;
+  }
+
+  function computeAndShowResult() {
+    const { next } = computeRecommendation();
+    const slot = document.getElementById('result-slot');
+    if (!next) {
+      slot.innerHTML = `
+        <div class="result-card">
+          <p class="result-title">Your child has covered the full puzzle progression!</p>
+          <p class="result-why">That's the top of what we track today. We'll be adding more as PuzzlePath grows.</p>
+        </div>
+        <button class="btn secondary" id="restart-btn">Start Over</button>`;
+      document.getElementById('restart-btn').onclick = restart;
+      return;
+    }
+    const interestNote = state.interests.size > 0
+      ? ` Look for options themed around ${Array.from(state.interests).slice(0, 2).join(' or ').toLowerCase()} if your child has a favorite.`
+      : '';
+    slot.innerHTML = `
+      <div class="result-card">
+        <p class="result-eyebrow">Ready for next</p>
+        <div class="result-title-row">
+          <span class="check-icon">${iconSvg(next.icon, 28)}</span>
+          <h2 class="result-title">${next.parentLabel}</h2>
+        </div>
+        <p class="result-why">${next.why}${interestNote}</p>
+        <ul class="puzzle-list">
+          ${next.puzzleTypes.map(p => `<li>${p}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="result-card">
+        <p class="result-eyebrow">The roadmap</p>
+        ${buildRoadmap(next)}
+      </div>
+      <button class="btn" id="restart-btn" style="margin-top:4px;">Start Over</button>
+    `;
+    document.getElementById('restart-btn').onclick = restart;
+  }
+
+  function restart() {
+    state.step = 0;
+    state.ageMonths = null;
+    state.checkedSkills = new Set();
+    state.interests = new Set();
+    state.expandLevel = 0;
+    render();
+  }
+
+  render();
+
+  // PWA: register service worker if available
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
